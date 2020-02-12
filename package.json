@@ -1,0 +1,24 @@
+{
+	"name": "eyeballs",
+	"version": "1.0.0",
+	"description": "a proxy for YouTube",
+	"main": "index.js",
+	"scripts": {
+		"test": "eslint --cache index.js"
+	},
+	"keywords": [],
+	"author": "Lucas Dohmen <lucas@dohmen.io> (https://lucas.dohmen.io)",
+	"license": "GPL",
+	"dependencies": {
+		"http-proxy-stream": "^1.3.4",
+		"polka": "^0.5.2"
+	},
+	"devDependencies": {
+		"eslint": "^6.8.0",
+		"eslint-plugin-prettier": "^3.1.2",
+		"prettier": "1.19.1"
+	},
+	"prettier": {
+		"semi": false
+	}
+}
