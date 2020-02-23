@@ -1,6 +1,7 @@
 let { spawn } = require("child_process")
 let polka = require("polka")
 let proxy = require("http-proxy-stream")
+let port = process.env.PORT || "3000"
 
 // TODO: Error Handling
 // TODO: The video quality seems low, can we get it higher?
@@ -38,9 +39,9 @@ polka()
 		)
 		proxy(req, { url }, res)
 	})
-	.listen(3000, err => {
+	.listen(port, err => {
 		if (err) throw err
-		console.log(`Running on localhost:3000`)
+		console.log(`Running on localhost:${port}`)
 	})
 
 // Run youtube-dl with the provided args in `--dump-json` mode

@@ -4,6 +4,7 @@
 	"description": "a proxy for YouTube",
 	"main": "index.js",
 	"scripts": {
+		"start": "node .",
 		"test": "eslint --cache index.js"
 	},
 	"keywords": [],
