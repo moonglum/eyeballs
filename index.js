@@ -74,7 +74,8 @@ polka()
 		})
 	})
 	.get("stream", async (req, res) => {
-		let { url } = await youtubeDL(
+		let url = await youtubeDL(
+			"--get-url",
 			"-f",
 			"best",
 			`https://www.youtube.com/watch?v=${req.query.v}`
@@ -127,10 +128,8 @@ polka()
 		console.log(`Running on localhost:${port}`)
 	})
 
-// Run youtube-dl with the provided args in `--dump-json` mode
-// Return the parsed JSON
 function youtubeDL(...args) {
-	const command = spawn("youtube-dl", ["--dump-json", ...args])
+	const command = spawn("youtube-dl", args)
 
 	return new Promise((resolve, reject) => {
 		let results = []
@@ -139,17 +138,15 @@ function youtubeDL(...args) {
 			results.push(data)
 		})
 
-		command.stderr.on("data", data => {
-			results.push(data)
-		})
-
 		command.on("close", code => {
-			let result = JSON.parse(Buffer.concat(results))
+			let result = Buffer.concat(results)
+				.toString()
+				.trim()
 
 			if (code === 0) {
 				resolve(result)
 			} else {
-				reject(result)
+				reject()
 			}
 		})
 	})
