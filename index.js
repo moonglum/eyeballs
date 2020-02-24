@@ -31,7 +31,7 @@ polka()
 			  <body>
 					<h1>${video.title}</h1>
 					<video height="${video.height}" width="${video.width}" controls>
-						<source src="/stream?v=${req.query.v}" type="video/${video.ext}">
+						<source src="/stream?v=${req.query.v}">
 					</video>
 					<p>${video.description}</p>
 				</body>
