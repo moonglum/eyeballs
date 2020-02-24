@@ -6,6 +6,7 @@ let http2 = require("http2")
 let { HTTP2_HEADER_PATH, HTTP2_HEADER_STATUS } = http2.constants
 let Emitter = require("events")
 let createSearchResultParser = require("./lib/create-search-result-parser")
+let createViewParser = require("./lib/create-view-parser")
 
 let clientSession = http2.connect("https://www.youtube.com")
 
@@ -38,29 +39,39 @@ polka()
 			</html>`)
 	})
 	.get("/watch", async (req, res) => {
-		let video = await youtubeDL(
-			"-f",
-			"best",
-			`https://www.youtube.com/watch?v=${req.query.v}`
-		)
-		res.setHeader("Content-Type", "text/html")
-		res.end(`<!doctype html>
-			<html lang="en">
-				<head>
-					<meta charset="utf-8">
-					<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-					<meta name="description" content="${video.description}">
-					<title>${video.title}</title>
-					${req.query.css ? addStyling(req.query.css) : ""}
-				</head>
-			  <body>
-					<h1>${video.title}</h1>
-					<video height="${video.height}" width="${video.width}" controls>
-						<source src="/stream?v=${req.query.v}">
-					</video>
-					<p>${video.description}</p>
-				</body>
-			</html>`)
+		let result = clientSession.request({
+			[HTTP2_HEADER_PATH]: `/watch?v=${req.query.v}`
+		})
+
+		result.on("response", headers => {
+			res.statusCode = headers[HTTP2_HEADER_STATUS]
+			res.setHeader("Content-Type", "text/html")
+
+			let parser = createViewParser()
+
+			result.on("data", parser.parse)
+			result.on("close", () => {
+				let video = parser.close()
+
+				res.end(`<!doctype html>
+					<html lang="en">
+						<head>
+							<meta charset="utf-8">
+							<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+							<meta name="description" content="${video.description}">
+							<title>${video.title}</title>
+							${req.query.css ? addStyling(req.query.css) : ""}
+						</head>
+						<body>
+							<h1>${video.title}</h1>
+							<video height="${video.height}" width="${video.width}" controls>
+								<source src="/stream?v=${req.query.v}">
+							</video>
+							<p>${video.description}</p>
+						</body>
+					</html>`)
+			})
+		})
 	})
 	.get("stream", async (req, res) => {
 		let { url } = await youtubeDL(
