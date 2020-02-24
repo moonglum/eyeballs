@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"start": "node .",
-		"test": "eslint --cache index.js"
+		"test": "eslint --cache index.js lib/*.js"
 	},
 	"keywords": [],
 	"author": "Lucas Dohmen <lucas@dohmen.io> (https://lucas.dohmen.io)",
