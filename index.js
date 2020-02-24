@@ -26,6 +26,7 @@ polka()
 					<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 					<meta name="description" content="${video.description}">
 					<title>${video.title}</title>
+					${req.query.css && addStyling(req.query.css)}
 				</head>
 			  <body>
 					<h1>${video.title}</h1>
@@ -58,6 +59,7 @@ polka()
 					<head>
 						<meta charset="utf-8">
 						<title>Search Results</title>
+						${req.query.css && addStyling(req.query.css)}
 					</head>
 					<body>
 						<ul>
@@ -67,7 +69,7 @@ polka()
 			emitter.on("video", ({ title, href, meta, description }) => {
 				// href, title, description, meta
 				res.write(`<li>
-					<p><a href="${href}">${title}</a> ${description}</p>
+					<p><a href="${href}&css=${req.query.css}">${title}</a> ${description}</p>
 					<ul>
 						${meta.map(m => `<li>${m}</li>`).join("")}
 					</ul>
@@ -113,4 +115,11 @@ function youtubeDL(...args) {
 			}
 		})
 	})
+}
+
+function addStyling(href) {
+	if (href) {
+		return `<link rel="stylesheet" href="${href}" />`
+	}
+	return ""
 }
