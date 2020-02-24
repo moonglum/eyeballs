@@ -51,6 +51,7 @@ polka()
 
 		result.on("response", headers => {
 			res.statusCode = headers[HTTP2_HEADER_STATUS]
+			res.setHeader("Content-Type", "text/html")
 
 			res.write(`<!doctype html>
 				<html lang="en">
