@@ -47,7 +47,9 @@ polka()
 	})
 	.get("results", async (req, res) => {
 		let result = clientSession.request({
-			[HTTP2_HEADER_PATH]: `/results?search_query=${req.query.search_query}`
+			[HTTP2_HEADER_PATH]: `/results?search_query=${encodeURIComponent(
+				req.query.search_query
+			)}`
 		})
 
 		result.on("response", headers => {
