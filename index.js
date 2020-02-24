@@ -12,6 +12,31 @@ let clientSession = http2.connect("https://www.youtube.com")
 // TODO: Error Handling
 // TODO: Do we need to strip something in the proxy function?
 polka()
+	.get("/", async (req, res) => {
+		res.setHeader("Content-Type", "text/html")
+		res.end(`<!doctype html>
+			<html lang="en">
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+					<title>eyeballs</title>
+					${req.query.css ? addStyling(req.query.css) : ""}
+				</head>
+			  <body>
+					<h1>eyeballs</h1>
+					<form action="/results" method="get">
+						${
+							req.query.css
+								? `<input type="hidden" name="css" value="${req.query.css}">`
+								: ""
+						}
+						<label for="search_query">Search Query</label>
+						<input name="search_query" id="search_query" type="text">
+						<input type="submit">
+					</form>
+				</body>
+			</html>`)
+	})
 	.get("/watch", async (req, res) => {
 		let video = await youtubeDL(
 			"-f",
