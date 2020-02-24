@@ -14,29 +14,18 @@ let clientSession = http2.connect("https://www.youtube.com")
 // TODO: Do we need to strip something in the proxy function?
 polka()
 	.get("/", async (req, res) => {
-		res.setHeader("Content-Type", "text/html")
-		res.end(`<!doctype html>
-			<html lang="en">
-				<head>
-					<meta charset="utf-8">
-					<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-					<title>eyeballs</title>
-					${req.query.css ? addStyling(req.query.css) : ""}
-				</head>
-			  <body>
-					<h1>eyeballs</h1>
-					<form action="/results" method="get">
-						${
-							req.query.css
-								? `<input type="hidden" name="css" value="${req.query.css}">`
-								: ""
-						}
-						<label for="search_query">Search Query</label>
-						<input name="search_query" id="search_query" type="text">
-						<input type="submit">
-					</form>
-				</body>
-			</html>`)
+		startResponse(req, res)
+		res.end(`<h1>eyeballs</h1>
+			<form action="/results">
+				${
+					req.query.css
+						? `<input type="hidden" name="css" value="${req.query.css}">`
+						: ""
+				}
+				<label for="search_query">Search Query</label>
+				<input name="search_query" id="search_query">
+				<input type="submit">
+			</form>`)
 	})
 	.get("/watch", async (req, res) => {
 		let result = clientSession.request({
@@ -44,32 +33,22 @@ polka()
 		})
 
 		result.on("response", headers => {
-			res.statusCode = headers[HTTP2_HEADER_STATUS]
-			res.setHeader("Content-Type", "text/html")
-
 			let parser = createViewParser()
 
 			result.on("data", parser.parse)
 			result.on("close", () => {
 				let video = parser.close()
 
-				res.end(`<!doctype html>
-					<html lang="en">
-						<head>
-							<meta charset="utf-8">
-							<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-							<meta name="description" content="${video.description}">
-							<title>${video.title}</title>
-							${req.query.css ? addStyling(req.query.css) : ""}
-						</head>
-						<body>
-							<h1>${video.title}</h1>
+				startResponse(req, res, {
+					statusCode: headers[HTTP2_HEADER_STATUS],
+					title: video.title
+				})
+
+				res.end(`<h1>${video.title}</h1>
 							<video height="${video.height}" width="${video.width}" controls>
 								<source src="/stream?v=${req.query.v}">
 							</video>
-							<p>${video.description}</p>
-						</body>
-					</html>`)
+							<p>${video.description}</p>`)
 			})
 		})
 	})
@@ -90,19 +69,12 @@ polka()
 		})
 
 		result.on("response", headers => {
-			res.statusCode = headers[HTTP2_HEADER_STATUS]
-			res.setHeader("Content-Type", "text/html")
+			startResponse(req, res, {
+				statusCode: headers[HTTP2_HEADER_STATUS],
+				title: "Search Results"
+			})
 
-			res.write(`<!doctype html>
-				<html lang="en">
-					<head>
-						<meta charset="utf-8">
-						<title>Search Results</title>
-						${req.query.css ? addStyling(req.query.css) : ""}
-					</head>
-					<body>
-						<ul>
-			`)
+			res.write(`<ul>`)
 
 			let emitter = new Emitter()
 			emitter.on("video", ({ title, href, meta, description }) => {
@@ -119,7 +91,7 @@ polka()
 			result.on("data", parser.parse)
 			result.on("close", () => {
 				parser.close()
-				res.end(`</ul></body></html>`)
+				res.end()
 			})
 		})
 	})
@@ -152,9 +124,23 @@ function youtubeDL(...args) {
 	})
 }
 
-function addStyling(href) {
-	if (href) {
-		return `<link rel="stylesheet" href="${href}" />`
-	}
-	return ""
+function startResponse(
+	req,
+	res,
+	{ statusCode = 200, title = "eyeballs" } = {}
+) {
+	let css = req.query.css
+		? `<link rel="stylesheet" href="${req.query.css}" />`
+		: ""
+	res.statusCode = statusCode
+	res.setHeader("Content-Type", "text/html")
+	res.write(`<!doctype html>
+			<html lang="en">
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1">
+					<title>${title}</title>
+					${css}
+				</head>
+				<body>`)
 }
