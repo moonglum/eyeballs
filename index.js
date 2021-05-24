@@ -29,10 +29,10 @@ polka()
 	})
 	.get("/watch", async (req, res) => {
 		let result = clientSession.request({
-			[HTTP2_HEADER_PATH]: `/watch?v=${req.query.v}`
+			[HTTP2_HEADER_PATH]: `/watch?v=${req.query.v}`,
 		})
 
-		result.on("response", headers => {
+		result.on("response", (headers) => {
 			let parser = createViewParser()
 
 			result.on("data", parser.parse)
@@ -41,7 +41,7 @@ polka()
 
 				startResponse(req, res, {
 					statusCode: headers[HTTP2_HEADER_STATUS],
-					title: video.title
+					title: video.title,
 				})
 
 				res.end(`<h1>${video.title}</h1>
@@ -65,13 +65,13 @@ polka()
 		let result = clientSession.request({
 			[HTTP2_HEADER_PATH]: `/results?search_query=${encodeURIComponent(
 				req.query.search_query
-			)}`
+			)}`,
 		})
 
-		result.on("response", headers => {
+		result.on("response", (headers) => {
 			startResponse(req, res, {
 				statusCode: headers[HTTP2_HEADER_STATUS],
-				title: "Search Results"
+				title: "Search Results",
 			})
 
 			res.write(`<ul>`)
@@ -82,7 +82,7 @@ polka()
 				res.write(`<li>
 					<p><a href="${href}&css=${req.query.css}">${title}</a> ${description}</p>
 					<ul>
-						${meta.map(m => `<li>${m}</li>`).join("")}
+						${meta.map((m) => `<li>${m}</li>`).join("")}
 					</ul>
 				</li>`)
 			})
@@ -95,7 +95,7 @@ polka()
 			})
 		})
 	})
-	.listen(port, err => {
+	.listen(port, (err) => {
 		if (err) throw err
 		console.log(`Running on localhost:${port}`)
 	})
@@ -106,14 +106,12 @@ function youtubeDL(...args) {
 	return new Promise((resolve, reject) => {
 		let results = []
 
-		command.stdout.on("data", data => {
+		command.stdout.on("data", (data) => {
 			results.push(data)
 		})
 
-		command.on("close", code => {
-			let result = Buffer.concat(results)
-				.toString()
-				.trim()
+		command.on("close", (code) => {
+			let result = Buffer.concat(results).toString().trim()
 
 			if (code === 0) {
 				resolve(result)
