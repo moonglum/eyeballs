@@ -28,7 +28,7 @@ polka()
 	})
 	.get("/logo.svg", async (req, res) => {
 		res.statusCode = 200
-		res.setHeader("Content-Type", "image/svg+xml")
+		res.setHeader("Content-Type", "image/svg+xml; charset=utf-8")
 		res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
 			<text y=".9em" font-size="90">👀</text>
 			</svg>`)
@@ -100,10 +100,14 @@ async function youtubeDL(...args) {
 }
 
 // sort by descending quality, because the browser takes the first one that fits
+// only offer streams with both audio and video
 // TODO: this could also be sorted by `filesize` as a second parameter, because we want
 // the highest quality and lowest size first
 function sources(formats) {
+	// console.log(formats.filter((format) => format.acodec !== "none"))
+
 	return formats
+		.filter((format) => format.acodec !== "none" && format.vcodec !== "none")
 		.sort((a, b) => b.quality - a.quality)
 		.map((format) => {
 			// TODO: vcodec?
