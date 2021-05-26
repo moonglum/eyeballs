@@ -1,106 +1,83 @@
 let { spawn } = require("child_process")
 let polka = require("polka")
-let proxy = require("http-proxy-stream")
+let helmet = require("helmet")
 let port = process.env.PORT || "3000"
-let http2 = require("http2")
-let { HTTP2_HEADER_PATH, HTTP2_HEADER_STATUS } = http2.constants
-let Emitter = require("events")
-let createSearchResultParser = require("./lib/create-search-result-parser")
-let createViewParser = require("./lib/create-view-parser")
 
-let clientSession = http2.connect("https://www.youtube.com")
+let requestIdFormat = /^[a-z0-9]+$/i
 
-// TODO: Error Handling
-// TODO: Do we need to strip something in the proxy function?
 polka()
+	.use(
+		helmet({
+			contentSecurityPolicy: {
+				directives: {
+					defaultSrc: ["'none'"],
+					// source of the logo and the poster
+					imgSrc: ["'self'", "*.ytimg.com"],
+					// source of the video URLs
+					mediaSrc: ["*.googlevideo.com"],
+					// css option
+					styleSrc: ["https://*"],
+				},
+			},
+		})
+	)
 	.get("/", async (req, res) => {
-		startResponse(req, res)
-		res.end(`<h1>eyeballs</h1>
-			<form action="/results">
-				${
-					req.query.css
-						? `<input type="hidden" name="css" value="${req.query.css}">`
-						: ""
-				}
-				<label for="search_query">Search Query</label>
-				<input name="search_query" id="search_query">
-				<input type="submit">
-			</form>`)
+		respond(req, res, {
+			body: `<h1>Welcome to the eyeball zone 👀</h1>`,
+		})
+	})
+	.get("/logo.svg", async (req, res) => {
+		res.statusCode = 200
+		res.setHeader("Content-Type", "image/svg+xml")
+		res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+			<text y=".9em" font-size="90">👀</text>
+			</svg>`)
 	})
 	.get("/watch", async (req, res) => {
-		let result = clientSession.request({
-			[HTTP2_HEADER_PATH]: `/watch?v=${req.query.v}`,
-		})
+		if (!requestIdFormat.test(req.query.v)) {
+			respond(req, res, {
+				statusCode: 400,
+				body: `<p>Sorry to say that, but this video ID looks weird</p>`,
+			})
+			return
+		}
 
-		result.on("response", (headers) => {
-			let parser = createViewParser()
+		try {
+			let video = await youtubeDL(
+				"--dump-json",
+				"-f",
+				"best",
+				`https://www.youtube.com/watch?v=${req.query.v}`
+			)
 
-			result.on("data", parser.parse)
-			result.on("close", () => {
-				let video = parser.close()
-
-				startResponse(req, res, {
-					statusCode: headers[HTTP2_HEADER_STATUS],
-					title: video.title,
-				})
-
-				res.end(`<h1>${video.title}</h1>
-							<video height="${video.height}" width="${video.width}" controls>
-								<source src="/stream?v=${req.query.v}">
+			let body = `<h1>${video.title} 👀</h1>
+							<video height="${video.height}" width="${video.width}" poster=${
+				video.thumbnail
+			} controls>
+								${sources(video.formats)}
 							</video>
-							<p>${video.description}</p>`)
-			})
-		})
-	})
-	.get("stream", async (req, res) => {
-		let url = await youtubeDL(
-			"--get-url",
-			"-f",
-			"best",
-			`https://www.youtube.com/watch?v=${req.query.v}`
-		)
-		proxy(req, { url }, res)
-	})
-	.get("results", async (req, res) => {
-		let result = clientSession.request({
-			[HTTP2_HEADER_PATH]: `/results?search_query=${encodeURIComponent(
-				req.query.search_query
-			)}`,
-		})
+							${description(video.description)}`
 
-		result.on("response", (headers) => {
-			startResponse(req, res, {
-				statusCode: headers[HTTP2_HEADER_STATUS],
-				title: "Search Results",
+			respond(req, res, {
+				title: video.fulltitle,
+				body,
 			})
-
-			res.write(`<ul>`)
-
-			let emitter = new Emitter()
-			emitter.on("video", ({ title, href, meta, description }) => {
-				// href, title, description, meta
-				res.write(`<li>
-					<p><a href="${href}&css=${req.query.css}">${title}</a> ${description}</p>
-					<ul>
-						${meta.map((m) => `<li>${m}</li>`).join("")}
-					</ul>
-				</li>`)
+		} catch (err) {
+			console.error(err)
+			respond(req, res, {
+				statusCode: 500,
+				body: `<p>Sorry, something went wrong</p>`,
 			})
-			let parser = createSearchResultParser(emitter)
-
-			result.on("data", parser.parse)
-			result.on("close", () => {
-				parser.close()
-				res.end()
-			})
-		})
+		}
 	})
 	.listen(port, (err) => {
-		if (err) throw err
+		if (err) {
+			throw err
+		}
 		console.log(`Running on localhost:${port}`)
 	})
 
-function youtubeDL(...args) {
+async function youtubeDL(...args) {
 	const command = spawn("youtube-dl", args)
 
 	return new Promise((resolve, reject) => {
@@ -114,7 +91,7 @@ function youtubeDL(...args) {
 			let result = Buffer.concat(results).toString().trim()
 
 			if (code === 0) {
-				resolve(result)
+				resolve(JSON.parse(result))
 			} else {
 				reject()
 			}
@@ -122,23 +99,47 @@ function youtubeDL(...args) {
 	})
 }
 
-function startResponse(
+// sort by descending quality, because the browser takes the first one that fits
+// TODO: this could also be sorted by `filesize` as a second parameter, because we want
+// the highest quality and lowest size first
+function sources(formats) {
+	return formats
+		.sort((a, b) => b.quality - a.quality)
+		.map((format) => {
+			// TODO: vcodec?
+			// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
+			return `<source src="${format.url}" type="video/${format.ext}">`
+		})
+		.join("")
+}
+
+function description(text) {
+	let x = text
+		.replace(/http[\S]+/g, `<a href="$&" rel="noopener noreferrer">$&</a>`)
+		.replace(/\n\n/g, "</p><p>")
+		.replace(/\n/g, "<br>")
+	return `<p>${x}</p>`
+}
+
+function respond(
 	req,
 	res,
-	{ statusCode = 200, title = "eyeballs" } = {}
+	{ statusCode = 200, title = "eyeballs", body = "" } = {}
 ) {
 	let css = req.query.css
 		? `<link rel="stylesheet" href="${req.query.css}" />`
 		: ""
 	res.statusCode = statusCode
 	res.setHeader("Content-Type", "text/html")
-	res.write(`<!doctype html>
+	res.end(`<!doctype html>
 			<html lang="en">
 				<head>
 					<meta charset="utf-8">
 					<meta name="viewport" content="width=device-width, initial-scale=1">
+					<link rel="icon" href="/logo.svg">
 					<title>${title}</title>
 					${css}
 				</head>
-				<body>`)
+				<body>${body}</body>
+			</html>`)
 }
